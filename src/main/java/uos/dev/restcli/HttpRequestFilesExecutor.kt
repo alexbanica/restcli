@@ -28,7 +28,6 @@ class HttpRequestFilesExecutor constructor(
     private val decorator: PrivateConfigDecorator
 ) : Runnable {
     private val parser: Parser = Parser()
-    private var jsClient: JsClient = JsClient()
     private val requestEnvironmentInjector: RequestEnvironmentInjector =
         RequestEnvironmentInjector()
     private val logger = KotlinLogging.logger {}
@@ -122,7 +121,7 @@ class HttpRequestFilesExecutor constructor(
             val rawRequest = requests.getOrNull(requestIndex) ?: return
 
             runCatching {
-                jsClient = JsClient()
+                val jsClient = JsClient()
                 val jsGlobalEnv = EnvironmentConfigs.from(jsClient.globalEnvironment(), false)
                 val request = requestEnvironmentInjector.inject(
                     rawRequest,
@@ -138,7 +137,7 @@ class HttpRequestFilesExecutor constructor(
                 TestReportStore.addTestGroupReport(obfuscator.obfuscate(request.requestTarget), trace)
                 logger.info("\n__________________________________________________\n")
                 logger.info(t.bold("##### ${request.method.name} ${obfuscator.obfuscate(request.requestTarget)} #####"))
-                executeSingleRequest(executor, request)
+                executeSingleRequest(executor, request, jsClient)
                 EnvironmentConfigs.from(jsClient.globalEnvironment(), false)
                 jsClient.close()
             }.onFailure {
@@ -149,7 +148,7 @@ class HttpRequestFilesExecutor constructor(
         }
     }
 
-    private fun executeSingleRequest(executor: OkhttpRequestExecutor, request: Request) {
+    private fun executeSingleRequest(executor: OkhttpRequestExecutor, request: Request, jsClient: JsClient) {
         runCatching { executor.execute(request) }
             .onSuccess { response ->
                 jsClient.updateResponse(response)
